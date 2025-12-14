@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <title>GTV Timekeeper</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="GTV Checkin">
+    <meta name="theme-color" content="#2563eb">
+    
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icon.png"> 
+    <link rel="icon" type="image/png" href="./icon.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .loader { border-top-color: #3498db; -webkit-animation: spinner 1.5s linear infinite; animation: spinner 1.5s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        video.scale-x-[-1] { transform: scaleX(-1); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @keyframes popIn { 0% { opacity: 0; transform: scale(0.8) translateY(20px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+        .animate-pop-in { animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-gray-800">
+
+    <div id="login-screen" class="flex flex-col items-center justify-center h-screen bg-white">
+        <div class="p-8 text-center max-w-sm w-full">
+            <div class="mb-8 flex justify-center animate-pop-in">
+                <img src="https://gtvseo.com/wp-content/uploads/2023/10/logo-new-2048x1297.png" alt="GTV Logo" class="h-24 object-contain drop-shadow-lg">
+            </div>
+            
+            <h1 class="text-2xl font-bold mb-2 text-gray-800">Hệ thống chấm công</h1>
+            <p class="mb-8 text-gray-500 text-sm">Định vị & Xác thực khuôn mặt</p>
+            
+            <button onclick="loginWithGoogle()" class="w-full bg-white border border-gray-300 text-gray-700 font-bold py-3 px-4 rounded-xl shadow-sm hover:shadow-md transition flex items-center justify-center gap-3">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5">
+                Đăng nhập bằng Google
+            </button>
+        </div>
+    </div>
+
+    <div id="app-screen" class="hidden pb-24">
+        <nav class="bg-gradient-to-r from-blue-700 via-blue-600 to-purple-600 p-4 text-white shadow-lg sticky top-0 z-20">
+            <div class="container mx-auto flex justify-between items-center">
+                <div class="font-bold text-lg flex items-center gap-3">
+                    <img src="https://gtvseo.com/wp-content/uploads/2023/10/logo-new-2048x1297.png" class="h-10 w-auto object-contain bg-white/90 rounded px-2 py-1 shadow-sm">
+                    <span class="hidden sm:block opacity-90 tracking-wide">Timekeeper</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="flex flex-col text-right">
+                        <span id="user-name" class="font-semibold text-sm">User</span>
+                        <span id="admin-badge" class="hidden text-[10px] bg-yellow-400 text-blue-900 px-1.5 py-0.5 rounded font-bold uppercase w-max self-end">ADMIN</span>
+                    </div>
+                    <img id="user-avatar" class="w-9 h-9 rounded-full border-2 border-white shadow-sm" src="" alt="Avatar">
+                    <button onclick="logout()" class="ml-1 text-white/80 hover:text-white"><i class="fas fa-sign-out-alt text-xl"></i></button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container mx-auto p-4 max-w-3xl">
+            
+            <div id="admin-panel" class="hidden mb-6 bg-gradient-to-r from-yellow-50 to-white p-4 rounded-xl shadow-sm border border-yellow-200 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="bg-yellow-100 p-2 rounded-full text-yellow-600"><i class="fas fa-users-cog"></i></div>
+                    <div>
+                        <h2 class="font-bold text-gray-800 text-sm">Quản trị viên</h2>
+                        <p class="text-xs text-gray-500">Xem dữ liệu toàn bộ nhân sự</p>
+                    </div>
+                </div>
+                <button onclick="exportToCSV()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow flex items-center gap-2">
+                    <i class="fas fa-file-excel"></i> Xuất Excel
+                </button>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm p-5 mb-6 border border-gray-100">
+                <div class="flex justify-between items-end mb-4 border-b border-gray-100 pb-3">
+                    <div>
+                        <p class="text-xs text-gray-400 font-semibold uppercase">Hôm nay</p>
+                        <h2 id="current-date" class="text-xl font-bold text-blue-600">--/--/----</h2>
+                    </div>
+                    <div id="gps-status" class="text-xs text-green-500 bg-green-50 px-2 py-1 rounded-full flex items-center gap-1">
+                        <i class="fas fa-satellite-dish animate-pulse"></i> System Ready
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="triggerCheckIn('CHECKIN')" class="relative overflow-hidden group bg-blue-50 hover:bg-blue-100 border border-blue-200 p-4 rounded-xl transition active:scale-95 text-left">
+                        <div class="absolute right-[-10px] bottom-[-10px] text-blue-200 text-6xl opacity-20 group-hover:scale-110 transition"><i class="fas fa-sign-in-alt"></i></div>
+                        <i class="fas fa-sign-in-alt text-2xl text-blue-600 mb-2"></i>
+                        <div class="font-bold text-blue-800">VÀO CA</div>
+                        <div class="text-[10px] text-blue-500">Camera + GPS</div>
+                    </button>
+
+                    <button onclick="triggerCheckIn('CHECKOUT')" class="relative overflow-hidden group bg-green-50 hover:bg-green-100 border border-green-200 p-4 rounded-xl transition active:scale-95 text-left">
+                        <div class="absolute right-[-10px] bottom-[-10px] text-green-200 text-6xl opacity-20 group-hover:scale-110 transition"><i class="fas fa-sign-out-alt"></i></div>
+                        <i class="fas fa-sign-out-alt text-2xl text-green-600 mb-2"></i>
+                        <div class="font-bold text-green-800">TAN CA</div>
+                        <div class="text-[10px] text-green-500">Camera + GPS</div>
+                    </button>
+                    
+                    <button onclick="triggerCheckIn('WFH')" class="relative overflow-hidden group bg-purple-50 hover:bg-purple-100 border border-purple-200 p-4 rounded-xl transition active:scale-95 text-left">
+                        <div class="absolute right-[-10px] bottom-[-10px] text-purple-200 text-6xl opacity-20 group-hover:scale-110 transition"><i class="fas fa-laptop-house"></i></div>
+                        <i class="fas fa-laptop-house text-2xl text-purple-600 mb-2"></i>
+                        <div class="font-bold text-purple-800">WFH</div>
+                        <div class="text-[10px] text-purple-500">Ghi chú lý do</div>
+                    </button>
+                    
+                    <button onclick="triggerCheckIn('LEAVE')" class="relative overflow-hidden group bg-orange-50 hover:bg-orange-100 border border-orange-200 p-4 rounded-xl transition active:scale-95 text-left">
+                        <div class="absolute right-[-10px] bottom-[-10px] text-orange-200 text-6xl opacity-20 group-hover:scale-110 transition"><i class="fas fa-coffee"></i></div>
+                        <i class="fas fa-coffee text-2xl text-orange-600 mb-2"></i>
+                        <div class="font-bold text-orange-800">XIN NGHỈ</div>
+                        <div class="text-[10px] text-orange-500">Ghi chú lý do</div>
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+                <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <h3 class="font-bold text-gray-700 text-sm flex items-center gap-2"><i class="fas fa-history"></i> Lịch sử</h3>
+                    <select id="month-filter" onchange="loadLogs()" class="border-none bg-white text-sm font-semibold text-blue-600 focus:ring-0 cursor-pointer"></select>
+                </div>
+                <div class="overflow-x-auto no-scrollbar">
+                    <table class="w-full text-left border-collapse whitespace-nowrap">
+                        <thead>
+                            <tr class="bg-gray-100 text-gray-500 text-xs uppercase tracking-wider">
+                                <th class="p-3 pl-4">Nhân sự</th>
+                                <th class="p-3">Thời gian</th>
+                                <th class="p-3">Loại</th>
+                                <th class="p-3">Ghi chú</th>
+                                <th class="p-3 text-center">Ảnh/Map</th>
+                            </tr>
+                        </thead>
+                        <tbody id="log-table-body" class="text-sm divide-y divide-gray-100"></tbody>
+                    </table>
+                    <div id="empty-state" class="p-10 text-center hidden">
+                        <div class="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-3 text-gray-400">
+                            <i class="far fa-folder-open text-2xl"></i>
+                        </div>
+                        <p class="text-gray-500 text-sm">Chưa có dữ liệu</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="reason-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-pop-in">
+            <h3 class="text-lg font-bold text-gray-800 mb-2" id="reason-title">Nhập lý do</h3>
+            <p class="text-sm text-gray-500 mb-4">Vui lòng nhập lý do cụ thể.</p>
+            <textarea id="reason-input" rows="3" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none mb-4" placeholder="Ví dụ: Bị sốt, WFH dự án X..."></textarea>
+            <div class="flex gap-3">
+                <button onclick="closeReasonModal()" class="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200">Huỷ</button>
+                <button onclick="submitReason()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-lg shadow-blue-200">Xác nhận</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="motivation-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onclick="closeMotivationModal()">
+        <div class="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-1 rounded-2xl w-full max-w-sm shadow-2xl animate-pop-in" onclick="event.stopPropagation()">
+            <div class="bg-white rounded-xl p-8 text-center relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 to-pink-500"></div>
+                <div class="mb-4 text-4xl">✨</div>
+                <h3 class="text-xl font-bold text-gray-800 mb-2" id="motivation-user">Chào bạn!</h3>
+                <div class="h-px w-16 bg-gray-200 mx-auto mb-4"></div>
+                <p class="text-gray-600 italic text-lg leading-relaxed mb-6" id="motivation-quote">Loading...</p>
+                <button onclick="closeMotivationModal()" class="bg-gray-900 text-white px-6 py-2 rounded-full text-sm font-bold hover:bg-black transition transform hover:-translate-y-1">Tuyệt vời ❤️</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading-overlay" class="hidden fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-2xl shadow-2xl flex flex-col items-center border border-gray-100">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-blue-500 h-10 w-10 mb-3"></div>
+            <p class="text-gray-600 font-semibold text-sm animate-pulse" id="loading-text">Đang xử lý...</p>
+        </div>
+    </div>
+
+    <div id="camera-modal" class="hidden fixed inset-0 z-50 bg-black flex flex-col">
+        <div class="relative flex-1 bg-black overflow-hidden">
+            <video id="video-feed" autoplay playsinline class="absolute inset-0 w-full h-full object-cover transform scale-x-[-1]"></video>
+            <canvas id="canvas-feed" class="hidden"></canvas>
+            <div class="absolute inset-0 pointer-events-none flex flex-col justify-between p-6">
+                <div class="text-center">
+                    <div class="inline-block px-3 py-1 bg-black/50 backdrop-blur-md rounded-full text-white text-xs font-medium">📸 Xác thực khuôn mặt</div>
+                </div>
+                <div class="w-64 h-64 border-2 border-white/30 rounded-full mx-auto border-dashed"></div>
+                <div></div>
+            </div>
+        </div>
+        <div class="bg-black/90 p-6 pb-10 flex justify-between items-center px-10">
+            <button onclick="closeCamera()" class="p-4 rounded-full bg-gray-800/50 text-white hover:bg-gray-700 transition"><i class="fas fa-times"></i></button>
+            <button onclick="takeSnapshot()" class="p-1 rounded-full border-4 border-white/20 transition active:scale-95">
+                <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center border-4 border-black"></div>
+            </button>
+            <button onclick="switchCameraMode()" class="p-4 rounded-full bg-gray-800/50 text-white hover:bg-gray-700 transition"><i class="fas fa-sync-alt"></i></button>
+        </div>
+    </div>
+
+    <div id="image-modal" class="hidden fixed inset-0 z-50 bg-black/95 flex justify-center items-center backdrop-blur-sm" onclick="this.classList.add('hidden')">
+        <img id="modal-img" class="max-w-full max-h-[80vh] rounded-lg shadow-2xl" src="">
+        <button class="absolute top-6 right-6 text-white/70 hover:text-white text-4xl"><i class="fas fa-times-circle"></i></button>
+    </div>
+
+    <script type="module">
+        // --- CẤU HÌNH ---
+        const ADMIN_EMAILS = ["binhlongsd@gmail.com", "hr@gtvseo.com"]; 
+        const OFFICE_LOCATION = { lat: 10.8352314, lng: 106.6685515, radius: 100 };
+
+        const QUOTES = [
+            "Hành động ngay, đừng chờ hoàn hảo.", "Kỷ luật hôm nay, tự do ngày mai.",
+            "Năng lượng tạo ra ngân lượng.", "Thái độ quyết định trình độ.",
+            "Không lý do, chỉ có kết quả.", "Hôm nay phải giỏi hơn hôm qua 1%.",
+            "Tốc độ thực thi quyết định chiến thắng.", "Làm việc trong im lặng, để thành công lên tiếng.",
+            "Đừng giảm mục tiêu, hãy tăng nỗ lực.", "Sự kiên trì đánh bại tài năng thiên bẩm."
+        ];
+
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAyt1bWwn44zJsfSGps1PjrUIcDS3L_9pI",
+            authDomain: "chamcongapp-f735c.firebaseapp.com",
+            projectId: "chamcongapp-f735c",
+            storageBucket: "chamcongapp-f735c.firebasestorage.app",
+            messagingSenderId: "319110151686",
+            appId: "1:319110151686:web:b92728f08c912522148d87",
+            measurementId: "G-PETKSG7N1R"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        let currentUser = null;
+        let currentMonth = new Date().toISOString().slice(0, 7);
+        let pendingType = ""; 
+        let videoStream = null;
+        let currentFacingMode = 'user';
+
+        // --- AUTH ---
+        window.loginWithGoogle = () => signInWithPopup(auth, provider).catch(e => alert(e.message));
+        window.logout = () => signOut(auth);
+
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            if (user) {
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('app-screen').classList.remove('hidden');
+                document.getElementById('user-name').textContent = user.displayName;
+                document.getElementById('user-avatar').src = user.photoURL;
+                if (ADMIN_EMAILS.includes(user.email)) {
+                    document.getElementById('admin-panel').classList.remove('hidden');
+                    document.getElementById('admin-badge').classList.remove('hidden'); 
+                } else {
+                    document.getElementById('admin-panel').classList.add('hidden');
+                    document.getElementById('admin-badge').classList.add('hidden');
+                }
+                initDateFilter();
+                loadLogs();
+            } else {
+                document.getElementById('login-screen').classList.remove('hidden');
+                document.getElementById('app-screen').classList.add('hidden');
+            }
+        });
+
+        // --- LOGIC CHECK-IN MỚI (PHÂN LUỒNG) ---
+        window.triggerCheckIn = (type) => {
+            pendingType = type;
+            if (type === 'CHECKIN' || type === 'CHECKOUT') {
+                startCamera(); // Vào/Tan ca -> Mở Camera
+            } else {
+                // WFH/Nghỉ -> Mở Modal lý do
+                document.getElementById('reason-title').innerText = type === 'WFH' ? 'Đăng ký WFH' : 'Xin nghỉ phép';
+                document.getElementById('reason-input').value = ''; 
+                document.getElementById('reason-modal').classList.remove('hidden');
+                document.getElementById('reason-input').focus();
+            }
+        };
+
+        window.submitReason = () => {
+            const reason = document.getElementById('reason-input').value.trim();
+            if (!reason) { alert("Vui lòng nhập lý do!"); return; }
+            closeReasonModal();
+            processCheckIn(null, reason); 
+        };
+
+        window.closeReasonModal = () => document.getElementById('reason-modal').classList.add('hidden');
+
+        // CORE LOGIC: Xử lý rẽ nhánh
+        async function processCheckIn(imageBase64, noteText = "") {
+            showLoading(true, "Đang xử lý...");
+            
+            // BRANCH 1: WFH / LEAVE (Không cần GPS/Camera)
+            if (pendingType === 'WFH' || pendingType === 'LEAVE') {
+                await saveLogToDB({
+                    imageUrl: "", 
+                    note: noteText,
+                    lat: null, lng: null, locationStatus: "Not Required", distance: 0
+                });
+                return;
+            }
+
+            // BRANCH 2: CHECKIN / CHECKOUT (Cần GPS & Camera)
+            showLoading(true, "Đang định vị GPS...");
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const lat = pos.coords.latitude; 
+                const lng = pos.coords.longitude;
+                let status = "Valid"; 
+                
+                const dist = Math.round(getDistanceFromLatLonInM(lat, lng, OFFICE_LOCATION.lat, OFFICE_LOCATION.lng));
+                
+                if (dist > OFFICE_LOCATION.radius) {
+                    if(!confirm(`⚠️ CẢNH BÁO: Bạn cách VP ${dist}m (Quy định ${OFFICE_LOCATION.radius}m).\nVẫn chấm công?`)) { 
+                        showLoading(false); return; 
+                    }
+                    status = `Invalid (${dist}m)`;
+                }
+
+                await saveLogToDB({
+                    imageUrl: imageBase64 || "",
+                    note: noteText,
+                    lat: lat, lng: lng, locationStatus: status, distance: dist
+                });
+
+            }, (err) => { 
+                showLoading(false); 
+                alert("❌ Lỗi GPS: " + err.message + "\nVui lòng bật định vị để chấm công."); 
+            });
+        }
+
+        // Helper: Lưu Database
+        async function saveLogToDB(data) {
+            try {
+                await addDoc(collection(db, "logs"), {
+                    uid: currentUser.uid, 
+                    displayName: currentUser.displayName, 
+                    email: currentUser.email, 
+                    photoURL: currentUser.photoURL,
+                    type: pendingType, 
+                    imageUrl: data.imageUrl,
+                    note: data.note,
+                    lat: data.lat, lng: data.lng, locationStatus: data.locationStatus, distance: data.distance,
+                    timestamp: serverTimestamp(), 
+                    monthStr: new Date().toISOString().slice(0, 7)
+                });
+                
+                showLoading(false);
+                
+                if (currentUser.email === "vynguyen@gtvseo.com" && pendingType === "CHECKIN") {
+                    showMotivationPopup();
+                } else {
+                    const msg = (pendingType === 'WFH' || pendingType === 'LEAVE') ? "Gửi đơn thành công!" : "Chấm công thành công!";
+                    alert("✅ " + msg);
+                }
+            } catch (e) { alert("Lỗi hệ thống: " + e.message); showLoading(false); }
+        }
+
+        function showMotivationPopup() {
+            const randomQuote = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+            document.getElementById('motivation-user').textContent = "Vy ơi!";
+            document.getElementById('motivation-quote').textContent = randomQuote;
+            document.getElementById('motivation-modal').classList.remove('hidden');
+        }
+        window.closeMotivationModal = () => document.getElementById('motivation-modal').classList.add('hidden');
+
+        // --- QUERY & DISPLAY LOGS (FIXED DISPLAY) ---
+        window.loadLogs = () => {
+            const listEl = document.getElementById('log-table-body');
+            const selectedMonth = document.getElementById('month-filter').value || currentMonth;
+            const emptyEl = document.getElementById('empty-state');
+            
+            listEl.innerHTML = '';
+            let q = collection(db, "logs");
+
+            if (ADMIN_EMAILS.includes(currentUser.email)) {
+                q = query(q, where("monthStr", "==", selectedMonth), orderBy("timestamp", "desc"));
+            } else {
+                q = query(q, where("uid", "==", currentUser.uid), limit(50));
+            }
+
+            onSnapshot(q, (snapshot) => {
+                let docs = [];
+                snapshot.forEach(doc => docs.push(doc.data()));
+
+                if (!ADMIN_EMAILS.includes(currentUser.email)) {
+                    docs = docs.filter(d => d.monthStr === selectedMonth);
+                    docs.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+                }
+
+                if (docs.length === 0) {
+                    emptyEl.classList.remove('hidden');
+                } else {
+                    emptyEl.classList.add('hidden');
+                    listEl.innerHTML = ''; 
+                    
+                    docs.forEach((d) => {
+                        const time = d.timestamp ? d.timestamp.toDate().toLocaleString('vi-VN', {hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'}) : '...';
+                        
+                        let typeBadge = '';
+                        if(d.type === 'CHECKIN') typeBadge = '<span class="px-2 py-1 rounded bg-blue-100 text-blue-700 font-bold text-xs border border-blue-200">VÀO CA</span>';
+                        else if(d.type === 'CHECKOUT') typeBadge = '<span class="px-2 py-1 rounded bg-green-100 text-green-700 font-bold text-xs border border-green-200">TAN CA</span>';
+                        else if(d.type === 'WFH') typeBadge = '<span class="px-2 py-1 rounded bg-purple-100 text-purple-700 font-bold text-xs border border-purple-200">WFH</span>';
+                        else if(d.type === 'LEAVE') typeBadge = '<span class="px-2 py-1 rounded bg-orange-100 text-orange-700 font-bold text-xs border border-orange-200">NGHỈ</span>';
+
+                        // LOGIC UI QUAN TRỌNG: Hiện cả Ảnh và Map
+                        let mediaHtml = '<div class="flex items-center justify-center gap-2">'; 
+                        
+                        // Chỉ hiển thị Media cho Checkin/Checkout
+                        if (d.type === 'CHECKIN' || d.type === 'CHECKOUT') {
+                            // 1. Hiển thị Ảnh
+                            if (d.imageUrl) {
+                                mediaHtml += `<img src="${d.imageUrl}" onclick="viewImage('${d.imageUrl}')" class="w-8 h-8 rounded border-2 border-white shadow-sm cursor-pointer object-cover hover:scale-110 transition">`;
+                            }
+                            // 2. Hiển thị Map
+                            if (d.lat) {
+                                let mapColor = "text-blue-500 hover:text-blue-700";
+                                if (d.locationStatus && d.locationStatus.includes("Invalid")) {
+                                    mapColor = "text-red-500 hover:text-red-700 animate-pulse";
+                                }
+                                mediaHtml += `<a href="https://www.google.com/maps?q=${d.lat},${d.lng}" target="_blank" class="${mapColor} text-lg" title="${d.locationStatus || 'Xem vị trí'}">
+                                                <i class="fas fa-map-marked-alt"></i>
+                                              </a>`;
+                            }
+                        } else {
+                             mediaHtml += '<span class="text-gray-300 text-xs">-</span>';
+                        }
+                        mediaHtml += '</div>';
+
+                        let noteHtml = d.note ? `<span class="text-xs text-gray-600 italic bg-gray-50 px-2 py-1 rounded border border-gray-100 max-w-[150px] truncate block" title="${d.note}">${d.note}</span>` : '<span class="text-gray-300 text-xs">-</span>';
+
+                        listEl.innerHTML += `
+                            <tr class="hover:bg-blue-50 transition border-b border-gray-50 last:border-0">
+                                <td class="p-3 pl-4">
+                                    <div class="flex items-center gap-3">
+                                        <img src="${d.photoURL}" class="w-8 h-8 rounded-full border border-gray-200">
+                                        <div class="font-medium text-gray-900 overflow-hidden text-ellipsis max-w-[100px]">${d.displayName}</div>
+                                    </div>
+                                </td>
+                                <td class="p-3 font-mono text-gray-600 text-xs">${time}</td>
+                                <td class="p-3">${typeBadge}</td>
+                                <td class="p-3">${noteHtml}</td>
+                                <td class="p-3 text-center text-xs">${mediaHtml}</td>
+                            </tr>`;
+                    });
+                }
+            });
+        };
+
+        // --- CAMERA UTILS (Giữ nguyên) ---
+        window.startCamera = async () => {
+            document.getElementById('camera-modal').classList.remove('hidden');
+            try {
+                if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+                videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode } });
+                const v = document.getElementById('video-feed');
+                v.srcObject = videoStream;
+                v.classList.toggle('scale-x-[-1]', currentFacingMode === 'user');
+            } catch (err) { alert("Lỗi Camera: " + err.message); closeCamera(); }
+        };
+
+        window.closeCamera = () => {
+            document.getElementById('camera-modal').classList.add('hidden');
+            if (videoStream) { videoStream.getTracks().forEach(t => t.stop()); videoStream = null; }
+        };
+
+        window.switchCameraMode = () => {
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            startCamera();
+        };
+
+        window.takeSnapshot = () => {
+            const v = document.getElementById('video-feed');
+            const c = document.getElementById('canvas-feed');
+            if (v.videoWidth) {
+                c.width = v.videoWidth; c.height = v.videoHeight;
+                const ctx = c.getContext('2d');
+                if (currentFacingMode === 'user') { ctx.translate(c.width, 0); ctx.scale(-1, 1); }
+                ctx.drawImage(v, 0, 0);
+                
+                const MAX_W = 600; const scale = MAX_W / c.width;
+                const finalC = document.createElement('canvas');
+                finalC.width = MAX_W; finalC.height = c.height * scale;
+                finalC.getContext('2d').drawImage(c, 0, 0, finalC.width, finalC.height);
+                
+                closeCamera();
+                processCheckIn(finalC.toDataURL('image/jpeg', 0.6));
+            }
+        };
+
+        function getDistanceFromLatLonInM(lat1, lon1, lat2, lon2) {
+            var R = 6371; var dLat = (lat2 - lat1) * (Math.PI / 180); var dLon = (lon2 - lon1) * (Math.PI / 180);
+            var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c * 1000;
+        }
+
+        window.exportToCSV = () => {
+             let csv = ["Ten,Email,Thoi Gian,Loai,Ly Do,Link Map"];
+             document.querySelectorAll("#log-table-body tr").forEach(row => {
+                let cols = row.querySelectorAll("td");
+                if(cols.length) {
+                    let name = cols[0].innerText.trim().replace(/\n/g, ' ');
+                    let time = cols[1].innerText;
+                    let type = cols[2].innerText;
+                    let note = cols[3].innerText !== '-' ? cols[3].innerText : '';
+                    let mapLink = cols[4].querySelector('a') ? cols[4].querySelector('a').href : '';
+                    csv.push(`"${name}","${name}","${time}","${type}","${note}","${mapLink}"`);
+                }
+             });
+             const blob = new Blob(["\uFEFF" + csv.join("\n")], {type: "text/csv;charset=utf-8;"});
+             const link = document.createElement("a");
+             link.href = URL.createObjectURL(blob); link.download = `ChamCong_${new Date().toISOString().slice(0,10)}.csv`;
+             link.click();
+        }
+
+        function initDateFilter() {
+            const now = new Date();
+            document.getElementById('current-date').textContent = now.toLocaleDateString('vi-VN');
+            document.getElementById('month-filter').innerHTML = `<option value="${now.toISOString().slice(0,7)}">Tháng này</option>`;
+        }
+        function showLoading(s, t) {
+            const el = document.getElementById('loading-overlay');
+            if(s) { document.getElementById('loading-text').textContent = t; el.classList.remove('hidden'); } else el.classList.add('hidden');
+        }
+        window.viewImage = (url) => { document.getElementById('modal-img').src = url; document.getElementById('image-modal').classList.remove('hidden'); }
+    </script>
+</body>
+</html>
