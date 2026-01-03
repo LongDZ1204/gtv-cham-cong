@@ -520,11 +520,33 @@
              link.click();
         }
 
+        // --- HÀM NÀY ĐÃ ĐƯỢC CẬP NHẬT ---
         function initDateFilter() {
             const now = new Date();
+            const filterEl = document.getElementById('month-filter');
+            
+            // Cập nhật UI
             document.getElementById('current-date').textContent = now.toLocaleDateString('vi-VN');
-            document.getElementById('month-filter').innerHTML = `<option value="${now.toISOString().slice(0,7)}">Tháng này</option>`;
+            
+            // Xóa options cũ
+            filterEl.innerHTML = '';
+
+            // Loop 6 tháng gần nhất
+            for (let i = 0; i < 6; i++) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+                const yearStr = d.getFullYear();
+                const value = `${yearStr}-${monthStr}`;
+                const label = `Tháng ${monthStr}/${yearStr}`;
+
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = i === 0 ? `${label} (Hiện tại)` : label;
+                
+                filterEl.appendChild(option);
+            }
         }
+        
         function showLoading(s, t) {
             const el = document.getElementById('loading-overlay');
             if(s) { document.getElementById('loading-text').textContent = t; el.classList.remove('hidden'); } else el.classList.add('hidden');
